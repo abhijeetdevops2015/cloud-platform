@@ -21,3 +21,6 @@ crash.log
 # IDE files
 .vscode/
 .idea/
+
+# Node Modules
+node_modules/
