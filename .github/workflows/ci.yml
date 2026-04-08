@@ -1,0 +1,39 @@
+name: CI - Build and Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set tag
+        run: echo "TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+
+      - name: Build backend
+        run: |
+          docker build -t backend ./services/backend
+          docker tag backend:latest 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend:$TAG
+          docker push 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend:$TAG
+
+      - name: Build frontend
+        run: |
+          docker build -t frontend ./services/frontend
+          docker tag frontend:latest 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:$TAG
+          docker push 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:$TAG
