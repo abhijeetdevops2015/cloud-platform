@@ -24,7 +24,7 @@ spec:
       containers:
         - name: frontend
           # Image name only — tag and full registry path are set by the overlay's images: block.
-          image: frontend
+          image: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:latest
 
           ports:
             - containerPort: 80
