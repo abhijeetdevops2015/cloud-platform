@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: frontend-prod
+  namespace: argocd
+  labels:
+    app: frontend
+    environment: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/placeholder/cloud-platform.git
+    targetRevision: main
+    path: kubernetes/overlays/prod
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloud-platform-prod
+
+  syncPolicy:
+    # Manual sync only — production promotion requires explicit human action.
+    syncOptions:
+      - CreateNamespace=false
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true

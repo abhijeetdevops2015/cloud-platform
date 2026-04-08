@@ -1,0 +1,83 @@
+# ArgoCD Helm values — chart: argo/argo-cd
+#
+# Install steps:
+#   helm repo add argo https://argoproj.github.io/argo-helm
+#   helm repo update
+#
+#   # Create the admin password secret BEFORE installing (see note below)
+#   kubectl create secret generic argocd-secret \
+#     --namespace argocd \
+#     --from-literal=admin.password="$(htpasswd -nbBC 10 '' <YOUR_PASSWORD> | tr -d ':\n')" \
+#     --from-literal=admin.passwordMtime="$(date +%FT%T%Z)" \
+#     --dry-run=client -o yaml | kubectl apply -f -
+#
+#   helm install argocd argo/argo-cd \
+#     --namespace argocd \
+#     --create-namespace \
+#     --version 7.x \
+#     -f kubernetes/argocd/helm-values.yaml
+#
+# Admin password:
+#   The admin password is NOT set in this file to avoid committing it to source control.
+#   It is stored as a Kubernetes Secret (see kubectl command above).
+#   The bcrypt hash must be generated with cost factor 10 (htpasswd -nbBC 10).
+#   Never store the plaintext password in Git.
+
+global:
+  # Image pull policy for all ArgoCD components
+  image:
+    pullPolicy: IfNotPresent
+
+server:
+  # Run in insecure (HTTP) mode so the AWS ALB can terminate TLS at the load balancer.
+  # The ALB Ingress (kubernetes/argocd/ingress.yaml) handles external-facing HTTPS.
+  extraArgs:
+    - --insecure
+
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # Do NOT create a LoadBalancer service — traffic comes through the Ingress
+  service:
+    type: ClusterIP
+
+repoServer:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+applicationSet:
+  replicas: 1
+
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+configs:
+  # Tell ArgoCD which Git repo to trust for Application sources
+  repositories:
+    cloud-platform:
+      url: https://github.com/placeholder/cloud-platform.git
+      name: cloud-platform
+      type: git
+
+  params:
+    # Required when running in --insecure mode behind an ALB
+    server.insecure: "true"

@@ -1,0 +1,72 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/frontend/**"
+
+# Required for GitHub OIDC token exchange with AWS
+permissions:
+  id-token: write
+  contents: write  # needed to commit updated kustomization.yaml back to repo
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_CI }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag from git commit SHA
+        id: vars
+        run: |
+          echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "ECR_REPO=${{ steps.login-ecr.outputs.registry }}/cloud-platform-dev-frontend" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies and run tests
+        working-directory: services/frontend
+        run: |
+          npm ci
+          npm test --watchAll=false --passWithNoTests
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ steps.vars.outputs.ECR_REPO }}:${{ steps.vars.outputs.IMAGE_TAG }} \
+            services/frontend
+
+      - name: Push image to ECR
+        run: |
+          docker push ${{ steps.vars.outputs.ECR_REPO }}:${{ steps.vars.outputs.IMAGE_TAG }}
+
+      - name: Install Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Update image tag in dev overlay
+        working-directory: kubernetes/overlays/dev
+        run: |
+          kustomize edit set image frontend=${{ steps.vars.outputs.ECR_REPO }}:${{ steps.vars.outputs.IMAGE_TAG }}
+
+      - name: Commit and push updated kustomization.yaml
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add kubernetes/overlays/dev/kustomization.yaml
+          git diff --staged --quiet || git commit -m "ci: update frontend image to ${{ github.sha }}"
+          git push

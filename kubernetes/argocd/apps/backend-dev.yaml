@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: backend-dev
+  namespace: argocd
+  labels:
+    app: backend
+    environment: dev
+  # Cascade deletion: removing this Application also removes the deployed resources
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/placeholder/cloud-platform.git
+    targetRevision: main
+    # ArgoCD watches this overlay path. When CI commits an updated image tag here,
+    # ArgoCD detects drift and syncs automatically (auto-sync enabled for dev).
+    path: kubernetes/overlays/dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloud-platform-dev
+
+  syncPolicy:
+    # Dev: fully automated — sync on every Git change, prune removed resources,
+    # and self-heal if someone manually changes something in the cluster.
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false  # namespace created by namespaces.yaml, not ArgoCD
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true

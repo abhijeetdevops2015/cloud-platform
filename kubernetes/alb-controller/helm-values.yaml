@@ -1,0 +1,43 @@
+# AWS Load Balancer Controller — Helm values
+#
+# Install steps (run once per cluster):
+#
+#   1. Add the Helm repo:
+#        helm repo add eks https://aws.github.io/eks-charts
+#        helm repo update
+#
+#   2. Apply the CRDs first:
+#        kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master"
+#
+#   3. Install the controller (substitute your actual cluster name and VPC ID):
+#        helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+#          -n kube-system \
+#          -f kubernetes/alb-controller/helm-values.yaml
+#
+# The controller uses the EKS node IAM role to call AWS APIs.
+# The AmazonEKSLoadBalancingPolicy attachment in terraform/modules/eks/nodegroup.tf
+# grants the required permissions.
+
+clusterName: cloud-platform-dev-eks   # Change per environment
+
+region: us-east-1
+
+# VPC ID — fill in the output of: terraform output -raw vpc_id
+# (from terraform/environments/eks/dev)
+vpcId: REPLACE_WITH_VPC_ID
+
+# Run 2 replicas of the controller for HA
+replicaCount: 2
+
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+
+# Resource limits for the controller pod itself
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi

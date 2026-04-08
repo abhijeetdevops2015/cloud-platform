@@ -59,3 +59,11 @@ module "rds" {
 
   db_password = var.db_password
 }
+
+module "github_oidc" {
+  source = "../../../modules/github-oidc"
+
+  project     = var.project
+  environment = var.environment
+  github_repo = var.github_repo
+}

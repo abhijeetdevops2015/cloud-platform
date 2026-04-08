@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: frontend-staging
+  namespace: argocd
+  labels:
+    app: frontend
+    environment: staging
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/placeholder/cloud-platform.git
+    targetRevision: main
+    path: kubernetes/overlays/staging
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloud-platform-staging
+
+  syncPolicy:
+    # Manual sync only — promotion to staging is a deliberate act.
+    syncOptions:
+      - CreateNamespace=false
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true

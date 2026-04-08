@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloud-platform-dev
+  labels:
+    environment: dev
+    project: cloud-platform
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloud-platform-staging
+  labels:
+    environment: staging
+    project: cloud-platform
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloud-platform-prod
+  labels:
+    environment: prod
+    project: cloud-platform
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    project: cloud-platform

@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: frontend-dev
+  namespace: argocd
+  labels:
+    app: frontend
+    environment: dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/placeholder/cloud-platform.git
+    targetRevision: main
+    # Same overlay path as backend-dev — ArgoCD applies all resources in the overlay,
+    # each Application filters by what it manages. Both backend and frontend share
+    # this overlay because the kustomization.yaml renders both deployments.
+    # If you want independent sync control per service, split into separate overlay paths.
+    path: kubernetes/overlays/dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloud-platform-dev
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true

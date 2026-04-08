@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     bucket         = "cloud-platform-terraform-state-abhijeet"
-    key            = "terraform/staging/state.tfstate"
+    key            = "terraform/prod/state.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-locks"
     encrypt        = true
