@@ -1,4 +1,4 @@
-name: CI - Build and Push
+name: Build and Push to ECR
 
 on:
   push:
@@ -9,31 +9,40 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+    permissions:
+      id-token: write
+      contents: read
 
-      - name: Configure AWS
-        uses: aws-actions/configure-aws-credentials@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ✅ Use OIDC (NO secrets)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::930067562644:role/cloud-platform-dev-github-actions-ci
           aws-region: us-east-1
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set tag
-        run: echo "TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+      - name: Set image tag
+        id: vars
+        run: echo "TAG=${GITHUB_SHA}" >> $GITHUB_OUTPUT
 
-      - name: Build backend
+      # 🔥 Backend
+      - name: Build & push backend
         run: |
-          docker build -t backend ./services/backend
-          docker tag backend:latest 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend:$TAG
-          docker push 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend:$TAG
+          docker buildx build \
+            --platform linux/amd64 \
+            -t 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend:${{ steps.vars.outputs.TAG }} \
+            --push ./services/backend
 
-      - name: Build frontend
+      # 🔥 Frontend
+      - name: Build & push frontend
         run: |
-          docker build -t frontend ./services/frontend
-          docker tag frontend:latest 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:$TAG
-          docker push 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:$TAG
+          docker buildx build \
+            --platform linux/amd64 \
+            -t 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:${{ steps.vars.outputs.TAG }} \
+            --push ./services/frontend
