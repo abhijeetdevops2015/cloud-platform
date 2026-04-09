@@ -17,7 +17,7 @@ namespace: cloud-platform-dev
 images:
   - name: backend
     newName: PLACEHOLDER_ECR_REGISTRY/cloud-platform-dev-backend
-    newTag: PLACEHOLDER_SHA
+    newTag: 1c9aeb19480f377c8410ad1819efba81c9ea7a58
   - name: frontend
     newName: PLACEHOLDER_ECR_REGISTRY/cloud-platform-dev-frontend
-    newTag: PLACEHOLDER_SHA
+    newTag: 1c9aeb19480f377c8410ad1819efba81c9ea7a58
