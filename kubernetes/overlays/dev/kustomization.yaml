@@ -1,23 +1,16 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Point at the shared base manifests
 resources:
   - ../../base
 
-# Apply the dev namespace to every resource in the base
 namespace: cloud-platform-dev
 
-# Image overrides — CI writes to these entries via:
-#   kustomize edit set image backend=<ecr-url>:<sha>
-#   kustomize edit set image frontend=<ecr-url>:<sha>
-#
-# The newName and newTag below are placeholders; they are replaced on every
-# successful CI run and committed back to this file automatically.
 images:
   - name: backend
-    newName: PLACEHOLDER_ECR_REGISTRY/cloud-platform-dev-backend
-    newTag: 1c9aeb19480f377c8410ad1819efba81c9ea7a58
+    newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend
+    newTag: REPLACE_WITH_SHA
+
   - name: frontend
-    newName: PLACEHOLDER_ECR_REGISTRY/cloud-platform-dev-frontend
-    newTag: 1c9aeb19480f377c8410ad1819efba81c9ea7a58
+    newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend
+    newTag: REPLACE_WITH_SHA
