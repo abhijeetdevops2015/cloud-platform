@@ -10,8 +10,8 @@ namespace: cloud-platform-dev
 images:
   - name: backend
     newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend
-    newTag: REPLACE_WITH_SHA
+    newTag: <SHA>
 
   - name: frontend
     newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend
-    newTag: REPLACE_WITH_SHA
+    newTag: <SHA>
