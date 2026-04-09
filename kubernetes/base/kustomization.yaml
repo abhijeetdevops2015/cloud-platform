@@ -4,3 +4,12 @@ kind: Kustomization
 resources:
   - backend.yaml
   - frontend.yaml
+
+images:
+  - name: backend
+    newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend
+    newTag: v1
+
+  - name: frontend
+    newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend
+    newTag: v1
