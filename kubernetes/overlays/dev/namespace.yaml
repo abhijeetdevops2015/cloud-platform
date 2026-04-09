@@ -1,0 +1,4 @@
+metadata:
+  name: cloud-platform-dev
+  labels:
+    environment: dev
