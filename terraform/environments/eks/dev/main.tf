@@ -6,12 +6,30 @@ terraform {
     dynamodb_table = "terraform-locks"
     encrypt        = true
   }
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = ">= 1.14.0"
+    }
+  }
 }
 
+# -------------------------
+# AWS Provider
+# -------------------------
 provider "aws" {
   region = "us-east-1"
 }
 
+# -------------------------
+# VPC Module
+# -------------------------
 module "vpc" {
   source = "../../../modules/vpc"
 
@@ -19,6 +37,9 @@ module "vpc" {
   project     = var.project
 }
 
+# -------------------------
+# EKS Module
+# -------------------------
 module "eks" {
   source = "../../../modules/eks"
 
@@ -35,6 +56,9 @@ module "eks" {
   project     = var.project
 }
 
+# -------------------------
+# ECR Module
+# -------------------------
 module "ecr" {
   source = "../../../modules/ecr"
 
@@ -42,6 +66,9 @@ module "ecr" {
   project     = var.project
 }
 
+# -------------------------
+# RDS Module
+# -------------------------
 module "rds" {
   source = "../../../modules/rds"
 
@@ -60,6 +87,9 @@ module "rds" {
   db_password = var.db_password
 }
 
+# -------------------------
+# GitHub OIDC Module
+# -------------------------
 module "github_oidc" {
   source = "../../../modules/github-oidc"
 
