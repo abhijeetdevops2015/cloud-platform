@@ -3,15 +3,14 @@ kind: Kustomization
 
 resources:
   - ../../base
-  - namespace.yaml
 
 namespace: cloud-platform-dev
 
 images:
   - name: backend
     newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend
-    newTag: ec74190fe51ead3265eb6ddb8d1dfc2575f1d4f8
+    newTag: <sha>
 
   - name: frontend
     newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend
-    newTag: ec74190fe51ead3265eb6ddb8d1dfc2575f1d4f8
+    newTag: <sha>

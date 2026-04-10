@@ -28,7 +28,7 @@ jobs:
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ✅ Generate image tag (commit SHA)
+      # ✅ Generate image tag
       - name: Set image tag
         id: vars
         run: echo "TAG=${GITHUB_SHA}" >> $GITHUB_OUTPUT
@@ -49,23 +49,14 @@ jobs:
             -t 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:${{ steps.vars.outputs.TAG }} 
             --push ./services/frontend
 
-      # ✅ Install Kustomize (FIX)
-      - name: Install Kustomize
-        run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-          sudo mv kustomize /usr/local/bin/
-
-      # ✅ Update image tag properly (NO sed)
+      # 🔥 ✅ UPDATE TAG (THIS FIXES YOUR ISSUE)
       - name: Update image tag in kustomization
         run: |
           TAG=${{ steps.vars.outputs.TAG }}
 
-          cd kubernetes/overlays/dev
+          sed -i "s|newTag: .*|newTag: $TAG|g" kubernetes/overlays/dev/kustomization.yaml
 
-          kustomize edit set image backend=930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend:$TAG
-          kustomize edit set image frontend=930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:$TAG
-
-      # ✅ Commit and push changes (TRIGGERS ARGOCD)
+      # 🔥 Commit and push changes
       - name: Commit and push changes
         run: |
           git config user.name "github-actions"
