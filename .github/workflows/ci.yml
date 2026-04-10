@@ -49,12 +49,19 @@ jobs:
             -t 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:${{ steps.vars.outputs.TAG }} 
             --push ./services/frontend
 
-      # 🔥 ✅ UPDATE TAG (THIS FIXES YOUR ISSUE)
+      # 🔥 ✅ UPDATE TAG (FIXED + ALIGNED)
       - name: Update image tag in kustomization
         run: |
           TAG=${{ steps.vars.outputs.TAG }}
+          FILE=kubernetes/overlays/dev/kustomization.yaml
 
-          sed -i "s|newTag: .*|newTag: $TAG|g" kubernetes/overlays/dev/kustomization.yaml
+          echo "===== BEFORE ====="
+          cat $FILE
+
+          sed -i "s|newTag: .*|newTag: $TAG|g" $FILE
+
+          echo "===== AFTER ====="
+          cat $FILE
 
       # 🔥 Commit and push changes
       - name: Commit and push changes
