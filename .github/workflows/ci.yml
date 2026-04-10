@@ -17,39 +17,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ✅ AWS OIDC login
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::930067562644:role/cloud-platform-dev-github-actions-ci
           aws-region: us-east-1
 
-      # ✅ Login to ECR
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ✅ Generate image tag
       - name: Set image tag
         id: vars
         run: echo "TAG=${GITHUB_SHA}" >> $GITHUB_OUTPUT
 
-      # 🔥 Build & push backend
       - name: Build & push backend
         run: |
-          docker buildx build 
-            --platform linux/amd64 
-            -t 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend:${{ steps.vars.outputs.TAG }} 
-            --push ./services/backend
+          docker buildx build \
+            --platform linux/amd64 \
+            -t 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-backend:${{ steps.vars.outputs.TAG }} \
+            --push \
+            ./services/backend
 
-      # 🔥 Build & push frontend
       - name: Build & push frontend
         run: |
-          docker buildx build 
-            --platform linux/amd64 
-            -t 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:${{ steps.vars.outputs.TAG }} 
-            --push ./services/frontend
+          docker buildx build \
+            --platform linux/amd64 \
+            -t 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-dev-frontend:${{ steps.vars.outputs.TAG }} \
+            --push \
+            ./services/frontend
 
-      # 🔥 Update kustomization
       - name: Update image tag in kustomization
         run: |
           TAG=${{ steps.vars.outputs.TAG }}
@@ -63,7 +59,6 @@ jobs:
           echo "===== AFTER ====="
           cat $FILE
 
-      # 🔥 Commit and push
       - name: Commit and push changes
         run: |
           git config user.name "github-actions"
