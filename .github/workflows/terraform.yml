@@ -9,7 +9,6 @@ on:
     paths:
       - "terraform/**"
 
-# OIDC token + PR comment permissions
 permissions:
   id-token: write
   contents: read
@@ -17,9 +16,11 @@ permissions:
 
 env:
   TF_WORKING_DIR: terraform/environments/eks/dev
+  AWS_REGION: us-east-1   # ✅ FIXED HERE (no secret needed)
 
 jobs:
-  # ── Plan: runs on every PR touching terraform/ ─────────────────────────────
+
+  # ───────────── PLAN ─────────────
   plan:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -32,7 +33,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TERRAFORM }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}   # ✅ FIXED
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -52,7 +53,6 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
-        # Capture output; continue even on plan failure so we can post the error as a comment
         run: |
           terraform plan -no-color 2>&1 | tee plan_output.txt
           echo "PLAN_EXIT=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
@@ -68,7 +68,7 @@ jobs:
             const status = exitCode === '0' ? '✅ Success' : exitCode === '2' ? '⚠️ Changes pending' : '❌ Failed';
 
             const body = [
-              `## Terraform Plan — \`dev\` environment`,
+              `## Terraform Plan — dev`,
               `**Status:** ${status}`,
               ``,
               `<details><summary>Show plan output</summary>`,
@@ -78,7 +78,7 @@ jobs:
               `\`\`\``,
               `</details>`,
               ``,
-              `_Triggered by commit \`${{ github.sha }}\`_`
+              `_Commit: ${{ github.sha }}_`
             ].join('\n');
 
             github.rest.issues.createComment({
@@ -92,12 +92,11 @@ jobs:
         if: steps.plan.outputs.PLAN_EXIT == '1'
         run: exit 1
 
-  # ── Apply: runs only on push to main ───────────────────────────────────────
+  # ───────────── APPLY ─────────────
   apply:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
-    # Prevent concurrent applies from racing on the same state
     concurrency:
       group: terraform-apply-dev
       cancel-in-progress: false
@@ -110,7 +109,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TERRAFORM }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}   # ✅ FIXED
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
