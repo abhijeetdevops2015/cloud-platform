@@ -3,18 +3,22 @@ kind: Ingress
 metadata:
   name: cloud-platform-ingress
   namespace: cloud-platform-dev
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
     - http:
         paths:
-          - path: /api
-            pathType: Prefix
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: backend-service
                 port:
                   number: 80
+
           - path: /
             pathType: Prefix
             backend:
