@@ -1,7 +1,7 @@
 function App() {
   const callBackend = async () => {
     try {
-      const res = await fetch("http://localhost:5000/db");
+      const res = await fetch("/api/db");   // ✅ FIXED
       const data = await res.json();
       alert(JSON.stringify(data));
     } catch (err) {
