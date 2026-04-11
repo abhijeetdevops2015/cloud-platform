@@ -20,16 +20,19 @@ const pool = new Pool({
   },
 });
 
+// 🔥 Create API router
+const router = express.Router();
+
 // Routes
-app.get("/", (req, res) => {
+router.get("/", (req, res) => {
   res.send("Cloud Platform Backend Running 🚀");
 });
 
-app.get("/health", (req, res) => {
+router.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.get("/db", async (req, res) => {
+router.get("/db", async (req, res) => {
   try {
     const result = await pool.query("SELECT NOW()");
     res.json(result.rows);
@@ -42,6 +45,14 @@ app.get("/db", async (req, res) => {
   }
 });
 
+// 🔥 Mount everything under /api
+app.use("/api", router);
+
+// Optional root route (nice to have)
+app.get("/", (req, res) => {
+  res.send("Backend root. Use /api/*");
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
-});// change
+});
