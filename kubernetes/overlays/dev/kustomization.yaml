@@ -3,7 +3,8 @@ kind: Kustomization
 
 resources:
   - ../../base
-  - namespace.yaml   # 👈 ADD THIS LINE
+  - namespace.yaml
+  - ingress.yaml
 
 namespace: cloud-platform-dev
 
