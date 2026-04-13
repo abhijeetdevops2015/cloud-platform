@@ -1,18 +1,14 @@
 ###############################################################
 # INSTALL ARGOCD
 #
-# kubectl_manifest (gavinbunney/kubectl) handles ONE resource per
-# block — passing the full argocd-install.yaml multi-document file
-# to it only applies the first document and silently drops the rest,
-# so the argocd namespace never gets created.
+# ArgoCD is installed independently on each cluster.
+# Each cluster (dev/staging/prod) manages its own ArgoCD
+# instance and its own ArgoCD Application.
 #
-# Using null_resource + `kubectl apply -f` correctly handles every
-# document in the file, in order.
-#
-# argocd-install.yaml is committed to this directory.
-# To refresh it:
-#   curl -sL https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml \
-#     -o terraform/environments/eks/dev/argocd-install.yaml
+# The argocd-install.yaml is shared from dev:
+#   file("../dev/argocd-install.yaml")
+# Or symlink it:
+#   ln -s ../dev/argocd-install.yaml argocd-install.yaml
 ###############################################################
 
 resource "null_resource" "argocd_install" {
@@ -21,19 +17,19 @@ resource "null_resource" "argocd_install" {
       aws eks update-kubeconfig \
         --region us-east-1 \
         --name ${module.eks.cluster_name} \
-        --kubeconfig /tmp/kubeconfig-dev
+        --kubeconfig /tmp/kubeconfig-staging
 
       kubectl create namespace argocd \
-        --kubeconfig /tmp/kubeconfig-dev \
+        --kubeconfig /tmp/kubeconfig-staging \
         --dry-run=client -o yaml \
-        | kubectl apply --kubeconfig /tmp/kubeconfig-dev -f -
+        | kubectl apply --kubeconfig /tmp/kubeconfig-staging -f -
 
       kubectl apply \
         --server-side \
         --force-conflicts \
-        --kubeconfig /tmp/kubeconfig-dev \
+        --kubeconfig /tmp/kubeconfig-staging \
         -n argocd \
-        -f ${path.module}/argocd-install.yaml
+        -f ${path.module}/../dev/argocd-install.yaml
     EOT
   }
 
@@ -42,17 +38,13 @@ resource "null_resource" "argocd_install" {
 
 ###############################################################
 # WAIT FOR ARGOCD TO BE READY
-#
-# Reuses the kubeconfig written by argocd_install above.
-# Waits up to 5 minutes for argocd-server to become Available
-# before Terraform tries to create the Application resource.
 ###############################################################
 
 resource "null_resource" "wait_for_argocd" {
   provisioner "local-exec" {
     command = <<-EOT
       kubectl wait \
-        --kubeconfig /tmp/kubeconfig-dev \
+        --kubeconfig /tmp/kubeconfig-staging \
         --for=condition=available \
         --timeout=300s \
         deployment/argocd-server \
@@ -64,7 +56,16 @@ resource "null_resource" "wait_for_argocd" {
 }
 
 ###############################################################
-# ARGOCD APPLICATION — dev
+# ARGOCD APPLICATION — staging
+#
+# Points at kubernetes/overlays/staging.
+# Auto-sync is enabled so any merge to main that updates the
+# staging overlay (e.g. a promoted image SHA) deploys automatically.
+#
+# Real-world note: some teams disable automated sync for staging
+# and use a manual promotion step. To do that, remove the
+# `automated` block and sync via:
+#   argocd app sync cloud-platform-staging
 ###############################################################
 
 resource "kubectl_manifest" "argocd_app" {
@@ -72,7 +73,7 @@ resource "kubectl_manifest" "argocd_app" {
     apiVersion: argoproj.io/v1alpha1
     kind: Application
     metadata:
-      name: cloud-platform-dev
+      name: cloud-platform-staging
       namespace: argocd
       finalizers:
         - resources-finalizer.argocd.argoproj.io
@@ -82,11 +83,11 @@ resource "kubectl_manifest" "argocd_app" {
       source:
         repoURL: https://github.com/abhijeetdevops2015/cloud-platform
         targetRevision: main
-        path: kubernetes/overlays/dev
+        path: kubernetes/overlays/staging
 
       destination:
         server: https://kubernetes.default.svc
-        namespace: cloud-platform-dev
+        namespace: cloud-platform-staging
 
       syncPolicy:
         automated:

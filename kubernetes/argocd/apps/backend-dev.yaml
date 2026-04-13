@@ -13,7 +13,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/placeholder/cloud-platform.git
+    repoURL: https://github.com/abhijeetdevops2015/cloud-platform
     targetRevision: main
     # ArgoCD watches this overlay path. When CI commits an updated image tag here,
     # ArgoCD detects drift and syncs automatically (auto-sync enabled for dev).

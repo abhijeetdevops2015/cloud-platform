@@ -1,18 +1,8 @@
 ###############################################################
 # INSTALL ARGOCD
 #
-# kubectl_manifest (gavinbunney/kubectl) handles ONE resource per
-# block — passing the full argocd-install.yaml multi-document file
-# to it only applies the first document and silently drops the rest,
-# so the argocd namespace never gets created.
-#
-# Using null_resource + `kubectl apply -f` correctly handles every
-# document in the file, in order.
-#
-# argocd-install.yaml is committed to this directory.
-# To refresh it:
-#   curl -sL https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml \
-#     -o terraform/environments/eks/dev/argocd-install.yaml
+# ArgoCD is installed independently on the prod cluster.
+# Shares the same install manifest as dev.
 ###############################################################
 
 resource "null_resource" "argocd_install" {
@@ -21,19 +11,19 @@ resource "null_resource" "argocd_install" {
       aws eks update-kubeconfig \
         --region us-east-1 \
         --name ${module.eks.cluster_name} \
-        --kubeconfig /tmp/kubeconfig-dev
+        --kubeconfig /tmp/kubeconfig-prod
 
       kubectl create namespace argocd \
-        --kubeconfig /tmp/kubeconfig-dev \
+        --kubeconfig /tmp/kubeconfig-prod \
         --dry-run=client -o yaml \
-        | kubectl apply --kubeconfig /tmp/kubeconfig-dev -f -
+        | kubectl apply --kubeconfig /tmp/kubeconfig-prod -f -
 
       kubectl apply \
         --server-side \
         --force-conflicts \
-        --kubeconfig /tmp/kubeconfig-dev \
+        --kubeconfig /tmp/kubeconfig-prod \
         -n argocd \
-        -f ${path.module}/argocd-install.yaml
+        -f ${path.module}/../dev/argocd-install.yaml
     EOT
   }
 
@@ -42,17 +32,13 @@ resource "null_resource" "argocd_install" {
 
 ###############################################################
 # WAIT FOR ARGOCD TO BE READY
-#
-# Reuses the kubeconfig written by argocd_install above.
-# Waits up to 5 minutes for argocd-server to become Available
-# before Terraform tries to create the Application resource.
 ###############################################################
 
 resource "null_resource" "wait_for_argocd" {
   provisioner "local-exec" {
     command = <<-EOT
       kubectl wait \
-        --kubeconfig /tmp/kubeconfig-dev \
+        --kubeconfig /tmp/kubeconfig-prod \
         --for=condition=available \
         --timeout=300s \
         deployment/argocd-server \
@@ -64,7 +50,15 @@ resource "null_resource" "wait_for_argocd" {
 }
 
 ###############################################################
-# ARGOCD APPLICATION — dev
+# ARGOCD APPLICATION — prod
+#
+# Points at kubernetes/overlays/prod.
+# Auto-sync is enabled so an approved image promotion (merged
+# to main) deploys automatically to prod.
+#
+# Real-world note: production often disables automated sync
+# and requires a manual `argocd app sync` after human review.
+# To switch to manual sync, remove the `automated` block below.
 ###############################################################
 
 resource "kubectl_manifest" "argocd_app" {
@@ -72,7 +66,7 @@ resource "kubectl_manifest" "argocd_app" {
     apiVersion: argoproj.io/v1alpha1
     kind: Application
     metadata:
-      name: cloud-platform-dev
+      name: cloud-platform-prod
       namespace: argocd
       finalizers:
         - resources-finalizer.argocd.argoproj.io
@@ -82,11 +76,11 @@ resource "kubectl_manifest" "argocd_app" {
       source:
         repoURL: https://github.com/abhijeetdevops2015/cloud-platform
         targetRevision: main
-        path: kubernetes/overlays/dev
+        path: kubernetes/overlays/prod
 
       destination:
         server: https://kubernetes.default.svc
-        namespace: cloud-platform-dev
+        namespace: cloud-platform-prod
 
       syncPolicy:
         automated:

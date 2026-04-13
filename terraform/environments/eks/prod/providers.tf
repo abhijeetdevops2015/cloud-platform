@@ -1,7 +1,6 @@
 ###############################################################
 # EKS DATA SOURCES
-# These are used by all three K8s providers below.
-# Defined here (not in argocd.tf) so every provider shares them.
+# Shared by all K8s providers below.
 ###############################################################
 
 data "aws_eks_cluster" "cluster" {
@@ -18,7 +17,6 @@ data "aws_eks_cluster_auth" "cluster" {
 
 ###############################################################
 # KUBECTL PROVIDER
-# Used by kubectl_manifest resources (argocd.tf, etc.)
 ###############################################################
 
 provider "kubectl" {
@@ -32,7 +30,6 @@ provider "kubectl" {
 
 ###############################################################
 # KUBERNETES PROVIDER
-# Used by any kubernetes_* resources if needed in future.
 ###############################################################
 
 provider "kubernetes" {
@@ -45,12 +42,9 @@ provider "kubernetes" {
 
 ###############################################################
 # HELM PROVIDER
-# Used by helm_release resources (ingress-nginx.tf, etc.)
-# FIX: was using ~/.kube/config which breaks in CI/CD.
 ###############################################################
 
 provider "helm" {
-  # Helm provider v3+ requires `kubernetes` as an attribute (=), not a block.
   kubernetes = {
     host = data.aws_eks_cluster.cluster.endpoint
     cluster_ca_certificate = base64decode(

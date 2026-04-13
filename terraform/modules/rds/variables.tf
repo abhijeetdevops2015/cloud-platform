@@ -21,3 +21,19 @@ variable "eks_node_sg" {
 variable "db_password" {
   type = string
 }
+
+# -------------------------------------------------------
+# DB sizing — vary per environment without code changes
+# -------------------------------------------------------
+
+variable "db_instance_class" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t3.micro" # dev default; prod should use db.t3.small or larger
+}
+
+variable "allocated_storage" {
+  description = "Allocated storage in GB"
+  type        = number
+  default     = 20
+}

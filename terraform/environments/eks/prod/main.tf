@@ -6,12 +6,30 @@ terraform {
     dynamodb_table = "terraform-locks"
     encrypt        = true
   }
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = ">= 1.14.0"
+    }
+  }
 }
 
+# -------------------------
+# AWS Provider
+# -------------------------
 provider "aws" {
   region = "us-east-1"
 }
 
+# -------------------------
+# VPC Module
+# -------------------------
 module "vpc" {
   source = "../../../modules/vpc"
 
@@ -19,6 +37,9 @@ module "vpc" {
   project     = var.project
 }
 
+# -------------------------
+# EKS Module
+# -------------------------
 module "eks" {
   source = "../../../modules/eks"
 
@@ -33,8 +54,17 @@ module "eks" {
 
   environment = var.environment
   project     = var.project
+
+  # Prod: larger nodes with higher HA floor
+  node_instance_types = var.node_instance_types
+  node_desired_size   = var.node_desired_size
+  node_min_size       = var.node_min_size
+  node_max_size       = var.node_max_size
 }
 
+# -------------------------
+# ECR Module
+# -------------------------
 module "ecr" {
   source = "../../../modules/ecr"
 
@@ -42,6 +72,9 @@ module "ecr" {
   project     = var.project
 }
 
+# -------------------------
+# RDS Module
+# -------------------------
 module "rds" {
   source = "../../../modules/rds"
 
@@ -57,5 +90,18 @@ module "rds" {
 
   eks_node_sg = module.eks.cluster_security_group_id
 
-  db_password = var.db_password
+  db_password       = var.db_password
+  db_instance_class = var.db_instance_class
+  allocated_storage = var.allocated_storage
+}
+
+# -------------------------
+# GitHub OIDC Module
+# -------------------------
+module "github_oidc" {
+  source = "../../../modules/github-oidc"
+
+  project     = var.project
+  environment = var.environment
+  github_repo = var.github_repo
 }

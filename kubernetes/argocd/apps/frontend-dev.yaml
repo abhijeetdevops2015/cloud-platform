@@ -12,7 +12,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/placeholder/cloud-platform.git
+    repoURL: https://github.com/abhijeetdevops2015/cloud-platform
     targetRevision: main
     # Same overlay path as backend-dev — ArgoCD applies all resources in the overlay,
     # each Application filters by what it manages. Both backend and frontend share

@@ -3,15 +3,21 @@ kind: Kustomization
 
 resources:
   - ../../base
+  - namespace.yaml
+  - ingress.yaml
 
 namespace: cloud-platform-prod
 
-# Image tags for prod are promoted manually after staging validation.
-# ArgoCD prod Applications require a manual sync — no auto-sync.
+# Image tags for prod are updated by the CI promotion workflow
+# after staging validation passes. The promotion job runs:
+#   cd kubernetes/overlays/prod
+#   kustomize edit set image backend=<ecr-url>:<sha>
+#   kustomize edit set image frontend=<ecr-url>:<sha>
+# Commits to main → ArgoCD detects drift → auto-syncs.
 images:
   - name: backend
-    newName: PLACEHOLDER_ECR_REGISTRY/cloud-platform-dev-backend
+    newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-prod-backend
     newTag: PLACEHOLDER_SHA
   - name: frontend
-    newName: PLACEHOLDER_ECR_REGISTRY/cloud-platform-dev-frontend
+    newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-prod-frontend
     newTag: PLACEHOLDER_SHA

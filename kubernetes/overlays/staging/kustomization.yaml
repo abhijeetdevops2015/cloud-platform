@@ -3,18 +3,21 @@ kind: Kustomization
 
 resources:
   - ../../base
+  - namespace.yaml
+  - ingress.yaml
 
 namespace: cloud-platform-staging
 
-# Image tags for staging are promoted manually (or via a separate promotion workflow).
-# To promote a dev image to staging:
+# Image tags for staging are updated by the CI promotion workflow.
+# When a build is validated in dev and promoted, the CI job runs:
+#   cd kubernetes/overlays/staging
 #   kustomize edit set image backend=<ecr-url>:<sha>
 #   kustomize edit set image frontend=<ecr-url>:<sha>
-# Then commit and push — ArgoCD staging Application requires a manual sync.
+# Commits the change → ArgoCD detects drift → auto-syncs.
 images:
   - name: backend
-    newName: PLACEHOLDER_ECR_REGISTRY/cloud-platform-dev-backend
+    newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-staging-backend
     newTag: PLACEHOLDER_SHA
   - name: frontend
-    newName: PLACEHOLDER_ECR_REGISTRY/cloud-platform-dev-frontend
+    newName: 930067562644.dkr.ecr.us-east-1.amazonaws.com/cloud-platform-staging-frontend
     newTag: PLACEHOLDER_SHA

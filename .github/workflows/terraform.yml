@@ -1,13 +1,35 @@
 name: Terraform
 
+# ─────────────────────────────────────────────────────────────────
+# Trigger strategy:
+#
+#   dev     — runs automatically on every push to main (or PR)
+#   staging — manual only via workflow_dispatch
+#   prod    — manual only via workflow_dispatch
+#
+# This gives you GitOps for dev and deliberate promotion gates
+# for staging and prod, without any extra tooling.
+# ─────────────────────────────────────────────────────────────────
+
 on:
   pull_request:
     paths:
       - "terraform/**"
+
   push:
     branches: [main]
     paths:
       - "terraform/**"
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy (staging or prod)"
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
 
 permissions:
   id-token: write
@@ -15,42 +37,44 @@ permissions:
   pull-requests: write
 
 env:
-  TF_WORKING_DIR: terraform/environments/eks/dev
-  AWS_REGION: us-east-1   # ✅ FIXED HERE (no secret needed)
+  AWS_REGION: us-east-1
+
+# ─────────────────────────────────────────────────────────────────
+# DEV — plan on PR, apply on push to main
+# ─────────────────────────────────────────────────────────────────
 
 jobs:
 
-  # ───────────── PLAN ─────────────
-  plan:
+  dev-plan:
+    name: "Dev — Plan"
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TERRAFORM }}
-          aws-region: ${{ env.AWS_REGION }}   # ✅ FIXED
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "~1.9"
 
+      - uses: azure/setup-kubectl@v3
+
       - name: Terraform Init
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        working-directory: terraform/environments/eks/dev
         run: terraform init
 
       - name: Terraform Validate
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        working-directory: terraform/environments/eks/dev
         run: terraform validate
 
       - name: Terraform Plan
         id: plan
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        working-directory: terraform/environments/eks/dev
         env:
           TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
         run: |
@@ -58,70 +82,145 @@ jobs:
           echo "PLAN_EXIT=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
         continue-on-error: true
 
-      - name: Post Terraform plan as PR comment
+      - name: Post plan as PR comment
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const planText = fs.readFileSync('${{ env.TF_WORKING_DIR }}/plan_output.txt', 'utf8');
+            const planText = fs.readFileSync('terraform/environments/eks/dev/plan_output.txt', 'utf8');
             const exitCode = '${{ steps.plan.outputs.PLAN_EXIT }}';
-            const status = exitCode === '0' ? '✅ Success' : exitCode === '2' ? '⚠️ Changes pending' : '❌ Failed';
-
-            const body = [
-              `## Terraform Plan — dev`,
-              `**Status:** ${status}`,
-              ``,
-              `<details><summary>Show plan output</summary>`,
-              ``,
-              `\`\`\``,
-              planText.substring(0, 60000),
-              `\`\`\``,
-              `</details>`,
-              ``,
-              `_Commit: ${{ github.sha }}_`
-            ].join('\n');
-
+            const status = exitCode === '0' ? '✅ No changes' : exitCode === '2' ? '⚠️ Changes pending' : '❌ Failed';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body
+              body: [
+                '## Terraform Plan — **dev**',
+                `**Status:** ${status}`,
+                '',
+                '<details><summary>Show plan output</summary>',
+                '',
+                '```',
+                planText.substring(0, 60000),
+                '```',
+                '</details>',
+                '',
+                `_Commit: ${{ github.sha }}_`
+              ].join('\n')
             });
 
       - name: Fail if plan errored
         if: steps.plan.outputs.PLAN_EXIT == '1'
         run: exit 1
 
-  # ───────────── APPLY ─────────────
-  apply:
+  dev-apply:
+    name: "Dev — Apply"
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-
     concurrency:
       group: terraform-apply-dev
       cancel-in-progress: false
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_TERRAFORM }}
-          aws-region: ${{ env.AWS_REGION }}   # ✅ FIXED
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "~1.9"
 
+      - uses: azure/setup-kubectl@v3
+
       - name: Terraform Init
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        working-directory: terraform/environments/eks/dev
         run: terraform init
 
       - name: Terraform Apply
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        working-directory: terraform/environments/eks/dev
         env:
           TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+        run: terraform apply -auto-approve
+
+# ─────────────────────────────────────────────────────────────────
+# STAGING — manual only (workflow_dispatch)
+# ─────────────────────────────────────────────────────────────────
+
+  staging-apply:
+    name: "Staging — Apply"
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: terraform-apply-staging
+      cancel-in-progress: false
+
+    # GitHub Environments gate: requires a reviewer to approve in the UI
+    # before this job runs. Set up at: Settings → Environments → staging
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TERRAFORM_STAGING }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.9"
+
+      - uses: azure/setup-kubectl@v3
+
+      - name: Terraform Init
+        working-directory: terraform/environments/eks/staging
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/eks/staging
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD_STAGING }}
+        run: terraform apply -auto-approve
+
+# ─────────────────────────────────────────────────────────────────
+# PROD — manual only (workflow_dispatch), requires approval gate
+# ─────────────────────────────────────────────────────────────────
+
+  prod-apply:
+    name: "Prod — Apply"
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: terraform-apply-prod
+      cancel-in-progress: false
+
+    # GitHub Environments gate: requires a reviewer to approve in the UI
+    # Set up at: Settings → Environments → prod
+    environment: prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TERRAFORM_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.9"
+
+      - uses: azure/setup-kubectl@v3
+
+      - name: Terraform Init
+        working-directory: terraform/environments/eks/prod
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/eks/prod
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD_PROD }}
         run: terraform apply -auto-approve
