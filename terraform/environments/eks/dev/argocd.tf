@@ -1,18 +1,5 @@
 ###############################################################
 # INSTALL ARGOCD
-#
-# kubectl_manifest (gavinbunney/kubectl) handles ONE resource per
-# block — passing the full argocd-install.yaml multi-document file
-# to it only applies the first document and silently drops the rest,
-# so the argocd namespace never gets created.
-#
-# Using null_resource + `kubectl apply -f` correctly handles every
-# document in the file, in order.
-#
-# argocd-install.yaml is committed to this directory.
-# To refresh it:
-#   curl -sL https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml \
-#     -o terraform/environments/eks/dev/argocd-install.yaml
 ###############################################################
 
 resource "null_resource" "argocd_install" {
@@ -42,10 +29,6 @@ resource "null_resource" "argocd_install" {
 
 ###############################################################
 # WAIT FOR ARGOCD TO BE READY
-#
-# Reuses the kubeconfig written by argocd_install above.
-# Waits up to 5 minutes for argocd-server to become Available
-# before Terraform tries to create the Application resource.
 ###############################################################
 
 resource "null_resource" "wait_for_argocd" {
@@ -64,39 +47,46 @@ resource "null_resource" "wait_for_argocd" {
 }
 
 ###############################################################
-# ARGOCD APPLICATION — dev
+# ARGOCD APPLICATION — dev (FINAL FIX)
 ###############################################################
 
-resource "kubectl_manifest" "argocd_app" {
-  yaml_body = <<-YAML
-    apiVersion: argoproj.io/v1alpha1
-    kind: Application
-    metadata:
-      name: cloud-platform-dev
-      namespace: argocd
-      finalizers:
-        - resources-finalizer.argocd.argoproj.io
-    spec:
-      project: default
+resource "null_resource" "argocd_app" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      cat <<EOF | kubectl apply --kubeconfig /tmp/kubeconfig-dev -f -
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloud-platform-dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 
-      source:
-        repoURL: https://github.com/abhijeetdevops2015/cloud-platform
-        targetRevision: main
-        path: kubernetes/overlays/dev
+spec:
+  project: default
 
-      destination:
-        server: https://kubernetes.default.svc
-        namespace: cloud-platform-dev
+  source:
+    repoURL: https://github.com/abhijeetdevops2015/cloud-platform
+    targetRevision: main
+    path: kubernetes/overlays/dev
 
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        syncOptions:
-          - CreateNamespace=false
-          - PrunePropagationPolicy=foreground
-          - PruneLast=true
-  YAML
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloud-platform-dev
 
-  depends_on = [null_resource.wait_for_argocd]
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+EOF
+    EOT
+  }
+
+  depends_on = [
+    null_resource.wait_for_argocd
+  ]
 }

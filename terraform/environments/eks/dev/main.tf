@@ -54,6 +54,11 @@ module "eks" {
 
   environment = var.environment
   project     = var.project
+
+  # 🔥 FIX: SCALE NODE GROUP
+  node_desired_size = 4
+  node_min_size     = 2
+  node_max_size     = 5
 }
 
 # -------------------------
